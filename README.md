@@ -60,9 +60,11 @@ dependencies: [
 
 ### Choose Your Integration
 
-**Option A: Swift Macros (Recommended)**
+### Option A: Swift Macros (Recommended)
 
-Framework-agnostic, returns `String`:
+**Framework-agnostic** — works with any Swift web framework.
+
+Returns `String`, you wrap it with your framework's response builder:
 
 ```swift
 targets: [
@@ -75,9 +77,15 @@ targets: [
 ]
 ```
 
-**Option B: Build Plugin**
+Build with `--disable-sandbox` to allow macro file reads:
 
-Auto-generates functions from `.esw` files:
+```bash
+swift build --disable-sandbox
+```
+
+### Option B: Build Plugin (Nexus-Coupled)
+
+Auto-generates `Connection`-returning functions for **Nexus framework** only:
 
 ```swift
 targets: [
@@ -104,17 +112,30 @@ var name: String
 <h1>Hello, <%= name %>!</h1>
 ```
 
-**Use with macros:**
+**Use with macros (framework-agnostic):**
 
 ```swift
 import ESW
 
 func greet(name: String) -> String {
-    return conn.html(#render("greeting.esw"))
+    return #render("greeting.esw")
 }
 ```
 
-**Or with the build plugin:**
+Wrap the result with whatever your framework provides:
+
+```swift
+// Nexus
+conn.html(#render("greeting.esw"))
+
+// Hummingbird
+Response(status: .ok, body: .init(byteBuffer: ByteBuffer(string: #render("greeting.esw"))))
+
+// Vapor
+Response(body: .init(string: #render("greeting.esw")))
+```
+
+**Or with the build plugin (Nexus-coupled):**
 
 ```swift
 return renderGreeting(conn: conn, name: "World")
@@ -286,14 +307,27 @@ ESW provides two Swift macros for template rendering.
 
 ### `#render` — File Templates
 
-Reads a `.esw` file at compile time:
+Reads a `.esw` file at compile time and expands to a `String`-returning closure:
 
 ```swift
 let users = try await db.query(User.self).all()
-return conn.html(#render("users.esw"))
+let html = #render("users.esw")
 ```
 
 Template variables are captured from the surrounding scope.
+
+Wrap with your framework:
+
+```swift
+// Nexus
+conn.html(#render("users.esw"))
+
+// Hummingbird
+Response(status: .ok, body: .init(byteBuffer: ByteBuffer(string: #render("users.esw"))))
+
+// Vapor
+Response(body: .init(string: #render("users.esw")))
+```
 
 **File resolution:** Searches `Views/<name>` and `<name>` up to 6 directory levels up.
 
@@ -309,7 +343,7 @@ let badge = #esw("""
 
 ### Framework Integration
 
-Both macros return `String`, making them framework-agnostic:
+The macro returns `String` — wrap it with whatever your framework provides:
 
 ```swift
 // Nexus
@@ -376,7 +410,10 @@ var content: String
 
 ```swift
 let body = #render("user_profile.esw")
-let page = #render("layout.esw")  // title and content captured from scope
+let page = #render("layout.esw")
+
+// Wrap with your framework (Nexus example)
+conn.html(page)
 ```
 
 ---

@@ -1,25 +1,30 @@
 import Foundation
 import ESWCompilerLib
 
+func writeToStderr(_ message: String) {
+#if os(Linux)
+    FileHandle.standardError.write(Data(message.utf8))
+#else
+    fputs(message, stderr)
+#endif
+}
+
 @main
 struct ESWCompilerCLI {
     static func main() {
         let args = CommandLine.arguments
-
         guard args.count >= 2 else {
             printUsageAndExit()
         }
-
         let inputPath = args[1]
         var outputPath: String?
         var emitSourceLocations = false
-
         var i = 2
         while i < args.count {
             switch args[i] {
             case "--output":
                 guard i + 1 < args.count else {
-                    fputs("error: --output requires a path argument\n", stderr)
+                    writeToStderr("error: --output requires a path argument\n")
                     exit(1)
                 }
                 outputPath = args[i + 1]
@@ -28,11 +33,10 @@ struct ESWCompilerCLI {
                 emitSourceLocations = true
                 i += 1
             default:
-                fputs("error: unknown argument '\(args[i])'\n", stderr)
+                writeToStderr("error: unknown argument '\(args[i])'\n")
                 printUsageAndExit()
             }
         }
-
         do {
             let source = try String(contentsOfFile: inputPath, encoding: .utf8)
             let filename = URL(fileURLWithPath: inputPath).lastPathComponent
@@ -42,7 +46,6 @@ struct ESWCompilerCLI {
                 sourceFile: inputPath,
                 emitSourceLocations: emitSourceLocations
             )
-
             if let outputPath {
                 try result.write(toFile: outputPath, atomically: true, encoding: .utf8)
             } else {
@@ -51,50 +54,50 @@ struct ESWCompilerCLI {
         } catch let error as ESWTokenizerError {
             switch error {
             case .unterminatedTag(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: unterminated ESW tag\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: unterminated ESW tag\n")
                 exit(1)
             case .malformedComponentTag(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: malformed component tag\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: malformed component tag\n")
                 exit(1)
             }
         } catch let error as ESWAssignsError {
             switch error {
             case .assignsNotFirst(let file, let line):
-                fputs("\(file):\(line): error: assigns block must be the first tag in the file\n", stderr)
+                writeToStderr("\(file):\(line): error: assigns block must be the first tag in the file\n")
                 exit(1)
             case .invalidDeclaration(let file, let line, let text):
-                fputs("\(file):\(line): error: invalid declaration: \(text)\n", stderr)
+                writeToStderr("\(file):\(line): error: invalid declaration: \(text)\n")
                 exit(1)
             }
         } catch let error as ESWComponentError {
             switch error {
             case .unterminatedComponent(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: unterminated component tag\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: unterminated component tag\n")
                 exit(1)
             case .unmatchedComponentClose(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: unmatched component close tag\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: unmatched component close tag\n")
                 exit(1)
             case .unterminatedSlot(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: unterminated slot tag\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: unterminated slot tag\n")
                 exit(1)
             case .unmatchedSlotClose(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: unmatched slot close tag\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: unmatched slot close tag\n")
                 exit(1)
             case .duplicateSlot(let name, let file, let line):
-                fputs("\(file):\(line): error: duplicate slot '\(name)'\n", stderr)
+                writeToStderr("\(file):\(line): error: duplicate slot '\(name)'\n")
                 exit(1)
             case .slotOutsideComponent(let file, let line, let column):
-                fputs("\(file):\(line):\(column): error: slot tag outside component\n", stderr)
+                writeToStderr("\(file):\(line):\(column): error: slot tag outside component\n")
                 exit(1)
             }
         } catch {
-            fputs("error: \(error)\n", stderr)
+            writeToStderr("error: \(error)\n")
             exit(1)
         }
     }
 
     static func printUsageAndExit() -> Never {
-        fputs("Usage: ESWCompilerCLI <input.esw> [--output <output.swift>] [--source-location]\n", stderr)
+        writeToStderr("Usage: ESWCompilerCLI <input.esw> [--output <output.swift>] [--source-location]\n")
         exit(1)
     }
 }

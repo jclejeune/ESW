@@ -45,3 +45,6 @@ specs/
 
 # OpenCode AI assistant
 .opencode/
+
+# VS Code
+.vscode/
